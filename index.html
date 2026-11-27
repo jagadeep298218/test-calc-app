@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-1: #e9e4dc;
+    --bg-2: #d6dde3;
+    --orb-1: #f3c9a8;
+    --orb-2: #a9c3d6;
+    --orb-3: #c9bfe0;
+    --glass: rgba(255, 255, 255, 0.22);
+    --glass-edge: rgba(255, 255, 255, 0.55);
+    --key: rgba(255, 255, 255, 0.18);
+    --key-hover: rgba(255, 255, 255, 0.34);
+    --key-active: rgba(255, 255, 255, 0.5);
+    --accent: rgba(40, 40, 46, 0.82);
+    --accent-text: #f6f4f0;
+    --text: #26262b;
+    --muted: rgba(38, 38, 43, 0.45);
+    --shadow: 0 30px 60px -20px rgba(40, 40, 60, 0.28);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-1: #121317;
+      --bg-2: #1a1c22;
+      --orb-1: #5a3d2e;
+      --orb-2: #23415a;
+      --orb-3: #3d3358;
+      --glass: rgba(255, 255, 255, 0.06);
+      --glass-edge: rgba(255, 255, 255, 0.14);
+      --key: rgba(255, 255, 255, 0.05);
+      --key-hover: rgba(255, 255, 255, 0.11);
+      --key-active: rgba(255, 255, 255, 0.18);
+      --accent: rgba(240, 236, 228, 0.9);
+      --accent-text: #16171b;
+      --text: #f1efea;
+      --muted: rgba(241, 239, 234, 0.4);
+      --shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Soft blurred shapes behind the glass so the frost has something to refract */
+  .orb { position: fixed; border-radius: 50%; filter: blur(60px); opacity: .85; z-index: 0; }
+  .orb.a { width: 340px; height: 340px; background: var(--orb-1); top: 12%; left: 18%; animation: drift 22s ease-in-out infinite; }
+  .orb.b { width: 300px; height: 300px; background: var(--orb-2); bottom: 10%; right: 16%; animation: drift 26s ease-in-out infinite reverse; }
+  .orb.c { width: 220px; height: 220px; background: var(--orb-3); top: 55%; left: 42%; animation: drift 30s ease-in-out infinite; }
+  @keyframes drift {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(40px, -30px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .orb { animation: none; } }
+
+  .calc {
+    position: relative;
+    z-index: 1;
+    width: min(340px, 100%);
+    padding: 28px 22px 22px;
+    border-radius: 32px;
+    background: var(--glass);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    box-shadow: var(--shadow), inset 0 1px 0 var(--glass-edge);
+  }
+
+  .display {
+    padding: 8px 10px 22px;
+    text-align: right;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .expr {
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--muted);
+    min-height: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    unicode-bidi: plaintext;
+  }
+  .result {
+    font-size: 56px;
+    font-weight: 200;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    transition: font-size .15s ease;
+  }
+
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  button {
+    aspect-ratio: 1;
+    border: 1px solid var(--glass-edge);
+    border-radius: 50%;
+    background: var(--key);
+    color: var(--text);
+    font: inherit;
+    font-size: 22px;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .15s ease, transform .08s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:hover { background: var(--key-hover); }
+  button:active, button.pressed { background: var(--key-active); transform: scale(.95); }
+  button:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
+  button.fn { color: var(--muted); font-size: 18px; }
+  button.op { font-size: 24px; }
+  button.op.active { background: var(--key-active); }
+  button.eq { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+  button.eq:hover { filter: brightness(1.08); }
+</style>
+</head>
+<body>
+  <div class="orb a"></div>
+  <div class="orb b"></div>
+  <div class="orb c"></div>
+
+  <main class="calc" aria-label="Calculator">
+    <div class="display">
+      <div class="expr" id="expr" aria-live="polite"></div>
+      <div class="result" id="result" aria-live="polite">0</div>
+    </div>
+    <div class="keys">
+      <button class="fn" data-action="clear" id="clearKey">AC</button>
+      <button class="fn" data-action="sign">±</button>
+      <button class="fn" data-action="percent">%</button>
+      <button class="op" data-op="/">÷</button>
+
+      <button data-digit="7">7</button>
+      <button data-digit="8">8</button>
+      <button data-digit="9">9</button>
+      <button class="op" data-op="*">×</button>
+
+      <button data-digit="4">4</button>
+      <button data-digit="5">5</button>
+      <button data-digit="6">6</button>
+      <button class="op" data-op="-">−</button>
+
+      <button data-digit="1">1</button>
+      <button data-digit="2">2</button>
+      <button data-digit="3">3</button>
+      <button class="op" data-op="+">+</button>
+
+      <button data-digit="0">0</button>
+      <button data-action="dot">.</button>
+      <button class="fn" data-action="back" aria-label="Backspace">⌫</button>
+      <button class="eq" data-action="equals">=</button>
+    </div>
+  </main>
+
+<script>
+(() => {
+  const SYMBOL = { '+': '+', '-': '−', '*': '×', '/': '÷' };
+  const PREC = { '+': 1, '-': 1, '*': 2, '/': 2 };
+
+  const exprEl = document.getElementById('expr');
+  const resultEl = document.getElementById('result');
+  const clearKey = document.getElementById('clearKey');
+
+  // tokens: numbers stored as strings, operators as '+', '-', '*', '/'
+  let tokens = [];
+  let current = '0';     // the number being typed
+  let justEvaluated = false;
+  let lastExpr = '';
+
+  const isOp = t => t in PREC;
+
+  // Evaluate with operator precedence (shunting-yard), no eval()
+  function evaluate(list) {
+    const out = [], ops = [];
+    for (const t of list) {
+      if (isOp(t)) {
+        while (ops.length && PREC[ops.at(-1)] >= PREC[t]) out.push(ops.pop());
+        ops.push(t);
+      } else out.push(parseFloat(t));
+    }
+    while (ops.length) out.push(ops.pop());
+    const st = [];
+    for (const t of out) {
+      if (typeof t === 'number') { st.push(t); continue; }
+      const b = st.pop(), a = st.pop();
+      if (t === '+') st.push(a + b);
+      else if (t === '-') st.push(a - b);
+      else if (t === '*') st.push(a * b);
+      else {
+        if (b === 0) return NaN;
+        st.push(a / b);
+      }
+    }
+    return st[0];
+  }
+
+  function format(n) {
+    if (!isFinite(n)) return 'Error';
+    const r = parseFloat(n.toPrecision(12));
+    if (Math.abs(r) >= 1e15 || (Math.abs(r) < 1e-9 && r !== 0)) return r.toExponential(6).replace(/\.?0+e/, 'e');
+    return String(r);
+  }
+
+  function pretty(numStr) {
+    if (numStr === 'Error' || /e/.test(numStr)) return numStr;
+    const neg = numStr.startsWith('-');
+    let [int, dec] = numStr.replace('-', '').split('.');
+    int = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (neg ? '−' : '') + int + (dec !== undefined ? '.' + dec : '');
+  }
+
+  function render() {
+    const shown = tokens.map(t => isOp(t) ? ` ${SYMBOL[t]} ` : pretty(t)).join('');
+    exprEl.textContent = justEvaluated ? lastExpr : shown;
+    const text = pretty(current);
+    resultEl.textContent = text;
+    // shrink long numbers to fit
+    const len = text.length;
+    resultEl.style.fontSize = len > 14 ? '30px' : len > 11 ? '38px' : len > 8 ? '46px' : '56px';
+    clearKey.textContent = (current !== '0' || tokens.length) && !justEvaluated ? 'C' : 'AC';
+    document.querySelectorAll('.op').forEach(b =>
+      b.classList.toggle('active', current === '' && tokens.at(-1) === b.dataset.op));
+  }
+
+  function inputDigit(d) {
+    if (justEvaluated || current === 'Error') { tokens = []; current = '0'; justEvaluated = false; }
+    if (current === '' || current === '0') current = d;
+    else if (current === '-0') current = '-' + d;
+    else if (current.replace(/[-.]/g, '').length < 15) current += d;
+  }
+
+  function inputDot() {
+    if (justEvaluated || current === 'Error') { tokens = []; current = '0'; justEvaluated = false; }
+    if (current === '') current = '0';
+    if (!current.includes('.')) current += '.';
+  }
+
+  function inputOp(op) {
+    if (current === 'Error') return;
+    justEvaluated = false;
+    if (current === '') {
+      if (tokens.length) tokens[tokens.length - 1] = op; // swap operator
+      return;
+    }
+    tokens.push(current.replace(/\.$/, ''), op);
+    current = '';
+  }
+
+  function equals() {
+    if (current === 'Error' || justEvaluated) return;
+    const list = [...tokens];
+    if (current === '') list.pop(); else list.push(current.replace(/\.$/, ''));
+    if (!list.length) return;
+    lastExpr = list.map(t => isOp(t) ? ` ${SYMBOL[t]} ` : pretty(t)).join('') + ' =';
+    current = format(evaluate(list));
+    tokens = [];
+    justEvaluated = true;
+  }
+
+  function clear() {
+    if (clearKey.textContent === 'C') { current = '0'; if (!tokens.length) justEvaluated = false; }
+    else { tokens = []; current = '0'; justEvaluated = false; lastExpr = ''; }
+  }
+
+  function back() {
+    if (justEvaluated || current === 'Error') { clear(); return; }
+    if (current === '') { tokens.pop(); current = tokens.pop() ?? '0'; return; }
+    current = current.slice(0, -1);
+    if (current === '' || current === '-') current = '0';
+  }
+
+  function sign() {
+    if (current === '' || current === 'Error') return;
+    current = current.startsWith('-') ? current.slice(1) : '-' + current;
+    justEvaluated = false;
+  }
+
+  function percent() {
+    if (current === '' || current === 'Error') return;
+    current = format(parseFloat(current) / 100);
+    justEvaluated = false;
+  }
+
+  const actions = { clear, sign, percent, dot: inputDot, back, equals };
+
+  document.querySelector('.keys').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.digit) inputDigit(b.dataset.digit);
+    else if (b.dataset.op) inputOp(b.dataset.op);
+    else actions[b.dataset.action]();
+    render();
+  });
+
+  // Keyboard support
+  const keyMap = { Enter: 'equals', '=': 'equals', Backspace: 'back', Escape: 'clear', '.': 'dot', ',': 'dot', '%': 'percent' };
+  document.addEventListener('keydown', e => {
+    let btn;
+    if (/^\d$/.test(e.key)) { inputDigit(e.key); btn = `[data-digit="${e.key}"]`; }
+    else if (e.key in PREC) { inputOp(e.key); btn = `[data-op="${e.key}"]`; }
+    else if (keyMap[e.key]) {
+      if (e.key === 'Escape') clearKey.textContent = 'AC';
+      actions[keyMap[e.key]](); btn = `[data-action="${keyMap[e.key]}"]`;
+    }
+    else return;
+    e.preventDefault();
+    render();
+    const el = document.querySelector(btn);
+    if (el) { el.classList.add('pressed'); setTimeout(() => el.classList.remove('pressed'), 120); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
